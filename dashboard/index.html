@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardioGuard Twin | Doctor Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1.5rem; }
+        .pulsing-alert { animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <header class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+        <div>
+            <h1 class="text-3xl font-bold text-blue-400">CardioGuard Digital Twin</h1>
+            <p class="text-slate-400 text-sm mt-1">Predictive Silent Ischemia Monitoring System</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="h-3 w-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span class="text-sm text-slate-300">Live Sync Active</span>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Patient Static EHR Data -->
+        <div class="card col-span-1">
+            <h2 class="text-xl font-semibold mb-4 text-slate-200 border-b border-slate-700 pb-2">Static EHR Data</h2>
+            <div class="space-y-4">
+                <div><label class="text-sm text-slate-400">Age</label><input type="number" id="age" value="45" class="w-full bg-slate-800 p-2 rounded text-white mt-1 border border-slate-600"></div>
+                <div><label class="text-sm text-slate-400">LDL Cholesterol (mg/dL)</label><input type="number" id="chol" value="165" class="w-full bg-slate-800 p-2 rounded text-white mt-1 border border-slate-600"></div>
+                <div><label class="text-sm text-slate-400">Systolic BP</label><input type="number" id="bp" value="145" class="w-full bg-slate-800 p-2 rounded text-white mt-1 border border-slate-600"></div>
+                
+                <div class="flex items-center space-x-2 mt-4">
+                    <input type="checkbox" id="smoker" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded">
+                    <label class="text-sm text-slate-300">Smoker</label>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="family_hist" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded">
+                    <label class="text-sm text-slate-300">Family History of CVD</label>
+                </div>
+            </div>
+            <button onclick="runSimulation()" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded transition duration-200">
+                Sync Wearable Data & Run Twin
+            </button>
+        </div>
+
+        <!-- Dynamic Wearable Stream -->
+        <div class="col-span-1 lg:col-span-2 space-y-6">
+            
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-slate-200 border-b border-slate-700 pb-2">Dynamic Wearable Stream (Last 24h)</h2>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-slate-800 p-4 rounded text-center border border-slate-700">
+                        <p class="text-sm text-slate-400">Current Heart Rate Variability (HRV)</p>
+                        <p class="text-3xl font-bold text-orange-400" id="display_hrv">22 ms</p>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded text-center border border-slate-700">
+                        <p class="text-sm text-slate-400">Current SpO2 (Oxygen)</p>
+                        <p class="text-3xl font-bold text-red-400" id="display_spo2">91 %</p>
+                    </div>
+                </div>
+                <div class="h-48 w-full">
+                    <canvas id="wearableChart"></canvas>
+                </div>
+            </div>
+
+            <!-- AI Prediction Result -->
+            <div id="resultCard" class="card bg-slate-800 border-slate-600 hidden transition-all duration-500">
+                <h2 class="text-xl font-semibold mb-2 text-slate-200">AI Risk Assessment</h2>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-5xl font-extrabold" id="riskScore">0%</p>
+                        <p class="text-sm text-slate-400 mt-1">Probability of Acute Ischemic Event</p>
+                    </div>
+                    <div id="alertBox" class="p-4 rounded-lg font-bold text-center w-1/2">
+                        <!-- Dynamic Status -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Setup Chart
+        const ctx = document.getElementById('wearableChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['-24h', '-20h', '-16h', '-12h', '-8h', '-4h', 'Now'],
+                datasets: [
+                    { label: 'HRV (ms)', data: [45, 42, 38, 30, 26, 24, 22], borderColor: '#f97316', tension: 0.3 },
+                    { label: 'SpO2 (%)', data: [98, 97, 95, 93, 92, 91, 91], borderColor: '#ef4444', tension: 0.3 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        async function runSimulation() {
+            // These inputs simulate the extracted features from a smartwatch for a crashing patient
+            const patientData = {
+                age: parseInt(document.getElementById('age').value),
+                cholesterol_ldl: parseFloat(document.getElementById('chol').value),
+                systolic_bp: parseFloat(document.getElementById('bp').value),
+                smoker: document.getElementById('smoker').checked ? 1 : 0,
+                family_history_cvd: document.getElementById('family_hist').checked ? 1 : 0,
+                hr_mean: 92.5,
+                hr_max: 110.0,
+                hrv_mean: 25.0,
+                hrv_min: 15.0,
+                spo2_mean: 92.0,
+                spo2_min: 88.0
+            };
+
+            document.getElementById('resultCard').classList.remove('hidden');
+            document.getElementById('alertBox').innerHTML = "Analyzing Twin Physics...";
+            document.getElementById('alertBox').className = "p-4 rounded-lg font-bold text-center w-1/2 bg-blue-600 text-white animate-pulse";
+
+            try {
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(patientData)
+                });
+                
+                const result = await response.json();
+                
+                // Update UI
+                document.getElementById('riskScore').innerText = result.risk_score_percentage + "%";
+                document.getElementById('alertBox').innerText = result.alert_status;
+                
+                if (result.is_high_risk) {
+                    document.getElementById('alertBox').className = "p-4 rounded-lg font-bold text-center w-1/2 bg-red-600 text-white pulsing-alert";
+                    document.getElementById('riskScore').className = "text-5xl font-extrabold text-red-500";
+                } else {
+                    document.getElementById('alertBox').className = "p-4 rounded-lg font-bold text-center w-1/2 bg-green-600 text-white";
+                    document.getElementById('riskScore').className = "text-5xl font-extrabold text-green-500";
+                }
+
+            } catch (error) {
+                console.error("Error communicating with Backend:", error);
+                document.getElementById('alertBox').innerHTML = "Server Offline. Ensure FastAPI is running.";
+                document.getElementById('alertBox').className = "p-4 rounded-lg font-bold text-center w-1/2 bg-gray-600 text-white";
+            }
+        }
+    </script>
+</body>
+</html>
