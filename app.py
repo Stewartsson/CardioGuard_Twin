@@ -39,9 +39,11 @@ class PatientData(BaseModel):
     spo2_mean: float
     spo2_min: float
 
+from fastapi.responses import FileResponse
+
 @app.get("/")
 def read_root():
-    return {"status": "CardioGuard API is running!"}
+    return FileResponse("dashboard/index.html")
 
 @app.post("/predict")
 def predict_risk(data: PatientData):
